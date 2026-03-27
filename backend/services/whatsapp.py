@@ -22,7 +22,7 @@ async def send_whatsapp_message(phone: str, message: str):
         "Content-Type": "application/json",
         "apikey": WHATSAPP_API_KEY
     }
-    
+
     payload = {
         "number": phone,
         "text": message

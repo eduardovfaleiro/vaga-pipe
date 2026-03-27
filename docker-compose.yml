@@ -11,7 +11,7 @@ services:
       - "5433:5432"
 
   backend:
-    build: 
+    build:
       context: ./backend
       dockerfile: Dockerfile
     volumes:
@@ -38,5 +38,27 @@ services:
     depends_on:
       - backend
 
+  redis_evolution:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
+  evolution:
+    image: atendai/evolution-api:latest
+    environment:
+      - SERVER_URL=http://localhost:8080
+      - DOCKER_ENV=true
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=redis://redis_evolution:6379/0
+      - CACHE_REDIS_PREFIX_KEY=evolution
+      - AUTHENTICATION_TYPE=apikey
+      - AUTHENTICATION_API_KEY=vaga_scraping_secret_key
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis_evolution
+
 volumes:
   postgres_data:
+  redis_data:
