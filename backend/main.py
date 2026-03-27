@@ -5,7 +5,7 @@ from database import engine, get_db
 from crud.job import get_jobs
 import crud.recommendation as recommendation_crud
 import crud.user as user_crud
-from services.scraper import trigger_scrape_if_needed
+from services.matcher import process_new_jobs_for_user
 from services.sync import sync_all_global_terms
 import schemas
 from dotenv import load_dotenv
@@ -25,7 +25,10 @@ async def health_check():
 
 @app.post("/users", response_model=schemas.User)
 async def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    return user_crud.create_user(db, user)
+    created_user = user_crud.create_user(db, user)
+    jobs = get_jobs(db)
+    process_new_jobs_for_user(db, created_user, jobs)
+    return created_user
 
 @app.get("/users/{user_id}", response_model=schemas.User)
 async def read_user(user_id: int, db: Session = Depends(get_db)):
@@ -33,11 +36,6 @@ async def read_user(user_id: int, db: Session = Depends(get_db)):
     if db_user is None:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     return db_user
-
-@app.post("/scrape")
-async def trigger_scrape(search_term: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    result = trigger_scrape_if_needed(db, search_term, background_tasks)
-    return result
 
 @app.post("/sync-global")
 async def trigger_global_sync(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):

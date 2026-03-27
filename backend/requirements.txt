@@ -5,3 +5,4 @@ psycopg2-binary==2.9.11
 pydantic-settings==2.13.1
 beautifulsoup4==4.14.3
 httpx==0.28.1
+thefuzz==0.22.1
