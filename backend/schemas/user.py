@@ -1,12 +1,14 @@
 from pydantic import BaseModel
 from typing import Optional
 
+from constants import DEFAULT_MATCH_THRESHOLD
+
 class UserBase(BaseModel):
     name: str
     title: str
     bio: Optional[str] = None
     skills: str
-    match_threshold: float = 70.0
+    match_threshold: float = DEFAULT_MATCH_THRESHOLD
     phone: Optional[str] = None
 
 class UserCreate(UserBase):

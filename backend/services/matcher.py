@@ -4,13 +4,14 @@ from crud.user import get_users
 from crud.recommendation import create_recommendation
 from services.whatsapp import send_whatsapp_message
 from models import User
+from constants import DEFAULT_MATCH_THRESHOLD
 
 async def process_new_jobs_for_user(db: Session, user: User, new_jobs: list):
     if not user.skills:
         return
 
     user_skills = user.skills.lower()
-    match_threshold = user.match_threshold or 70.0
+    match_threshold = user.match_threshold or DEFAULT_MATCH_THRESHOLD
 
     for job in new_jobs:
         if not job.description and not job.title:
@@ -22,22 +23,23 @@ async def process_new_jobs_for_user(db: Session, user: User, new_jobs: list):
         # pequeno de palavras (skills) está contido num conjunto maior (descrição da vaga)
         match_score = fuzz.token_set_ratio(user_skills, job_text)
 
+        print(f"[MATCHER] match_score={match_score} match_threshold={match_threshold}")
         if match_score >= match_threshold:
             create_recommendation(db, user_id=user.id, job_id=job.id, score=match_score)
 
-        # Se o usuário tiver telefone, dispara o WhatsApp
-        if user.phone:
-            message = (
-                f"🚀 *Nova vaga com Match!*\n\n"
-                f"*Título:* {job.title}\n"
-                f"*Empresa:* {job.company or 'Não informada'}\n"
-                f"*Score:* {match_score:.0f}%\n"
-                f"*Link:* {job.url}"
-            )
-            # Como estamos dentro de uma função async chamada pelo worker, podemos dar await
-            await send_whatsapp_message(user.phone, message)
+            # Se o usuário tiver telefone, dispara o WhatsApp
+            if user.phone:
+                message = (
+                    f"🚀 *Nova vaga com Match!*\n\n"
+                    f"*Título:* {job.title}\n"
+                    f"*Empresa:* {job.company or 'Não informada'}\n"
+                    f"*Score:* {match_score:.0f}%\n"
+                    f"*Link:* {job.url}"
+                )
+                # Como estamos dentro de uma função async chamada pelo worker, podemos dar await
+                await send_whatsapp_message(user.phone, message)
 
-        print(f"[MATCHER] Vaga '{job.title}' recomendada para '{user.name}' com score {match_score}!")
+                print(f"[MATCHER] Vaga '{job.title}' recomendada para '{user.name}' com score {match_score}!")
 
 async def process_new_jobs_for_users(db: Session, new_jobs: list):
     """
@@ -49,4 +51,4 @@ async def process_new_jobs_for_users(db: Session, new_jobs: list):
     users = get_users(db, skip=0, limit=1000) # Busca usuários ativos (até 1000 por lote para evitar estourar a memória)
 
     for user in users:
-        process_new_jobs_for_user(db, user, new_jobs)
+        await process_new_jobs_for_user(db, user, new_jobs)

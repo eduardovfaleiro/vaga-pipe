@@ -27,7 +27,8 @@ async def health_check():
 async def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     created_user = user_crud.create_user(db, user)
     jobs = get_jobs(db)
-    process_new_jobs_for_user(db, created_user, jobs)
+
+    await process_new_jobs_for_user(db, created_user, jobs)
     return created_user
 
 @app.get("/users/{user_id}", response_model=schemas.User)

@@ -1,5 +1,5 @@
 # Variáveis
-DOCKER_COMPOSE = docker-compose
+DOCKER_COMPOSE = docker compose
 
 .PHONY: help up down restart status logs build sync shell-backend shell-db clean
 
@@ -31,7 +31,7 @@ shell-backend: ## Acessa o terminal do container backend
 	docker exec -it $$(docker ps -q -f name=backend) /bin/bash
 
 shell-db: ## Acessa o terminal do banco de dados (Postgres)
-	docker exec -it $$(docker ps -q -f name=db) psql -U postgres -d vagas
+	$(DOCKER_COMPOSE) exec db psql -U postgres -d vagas
 
 clean: ## Remove containers, redes e volumes (CUIDADO: Apaga o banco de dados)
 	$(DOCKER_COMPOSE) down -v

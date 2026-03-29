@@ -8,7 +8,7 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     ports:
-      - "5433:5432"
+      - "5432:5432"
 
   backend:
     build:
@@ -54,10 +54,13 @@ services:
       - CACHE_REDIS_PREFIX_KEY=evolution
       - AUTHENTICATION_TYPE=apikey
       - AUTHENTICATION_API_KEY=vaga_scraping_secret_key
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://postgres:postgres@db:5432/evolution
     ports:
       - "8080:8080"
     depends_on:
       - redis_evolution
+      - db
 
 volumes:
   postgres_data:
