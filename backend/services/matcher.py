@@ -6,49 +6,74 @@ from services.whatsapp import send_whatsapp_message
 from models import User
 from constants import DEFAULT_MATCH_THRESHOLD
 
+
+def _score_job(skills: list[str], job_title: str, job_description: str) -> float:
+    """
+    Calcula o score de match entre as skills do usuário e uma vaga.
+    Cada skill é verificada individualmente contra título e descrição.
+    O score final é a porcentagem de skills que deram match.
+    O título tem peso maior (2x) que a descrição.
+    """
+    if not skills:
+        return 0.0
+
+    title = job_title.lower() if job_title else ""
+    description = job_description.lower() if job_description else ""
+
+    matched = 0
+    for skill in skills:
+        skill = skill.lower().strip()
+        if not skill:
+            continue
+
+        title_score = fuzz.partial_ratio(skill, title)
+        description_score = fuzz.partial_ratio(skill, description)
+
+        # Peso 2x para título
+        weighted_score = (title_score * 2 + description_score) / 3
+
+        if weighted_score >= 70:
+            matched += 1
+
+    return round((matched / len(skills)) * 100, 1)
+
+
 async def process_new_jobs_for_user(db: Session, user: User, new_jobs: list):
     if not user.skills:
         return
 
-    user_skills = user.skills.lower()
+    skills = user.skills if isinstance(user.skills, list) else []
     match_threshold = user.match_threshold or DEFAULT_MATCH_THRESHOLD
 
     for job in new_jobs:
         if not job.description and not job.title:
             continue
 
-        job_text = f"{job.title} {job.description}".lower()
+        match_score = _score_job(skills, job.title, job.description)
 
-        # Usando token_set_ratio que é ideal para verificar se um conjunto
-        # pequeno de palavras (skills) está contido num conjunto maior (descrição da vaga)
-        match_score = fuzz.token_set_ratio(user_skills, job_text)
+        print(f"[MATCHER] user={user.name} job='{job.title}' score={match_score} threshold={match_threshold}")
 
-        print(f"[MATCHER] match_score={match_score} match_threshold={match_threshold}")
         if match_score >= match_threshold:
             create_recommendation(db, user_id=user.id, job_id=job.id, score=match_score)
 
-            # Se o usuário tiver telefone, dispara o WhatsApp
             if user.phone:
                 message = (
                     f"🚀 *Nova vaga com Match!*\n\n"
                     f"*Título:* {job.title}\n"
                     f"*Empresa:* {job.company or 'Não informada'}\n"
-                    f"*Score:* {match_score:.0f}%\n"
+                    f"*Score:* {match_score}%\n"
                     f"*Link:* {job.url}"
                 )
-                # Como estamos dentro de uma função async chamada pelo worker, podemos dar await
                 await send_whatsapp_message(user.phone, message)
 
-                print(f"[MATCHER] Vaga '{job.title}' recomendada para '{user.name}' com score {match_score}!")
+                print(f"[MATCHER] Vaga '{job.title}' recomendada para '{user.name}' com score {match_score}%")
+
 
 async def process_new_jobs_for_users(db: Session, new_jobs: list):
-    """
-    Cruza as novas vagas coletadas com as skills dos usuários ativos.
-    """
     if not new_jobs:
         return
 
-    users = get_users(db, skip=0, limit=1000) # Busca usuários ativos (até 1000 por lote para evitar estourar a memória)
+    users = get_users(db, skip=0, limit=1000)
 
     for user in users:
         await process_new_jobs_for_user(db, user, new_jobs)
