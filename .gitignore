@@ -21,3 +21,4 @@ scripts/.venv/
 
 *.md
 *.pyc
+*.pem
