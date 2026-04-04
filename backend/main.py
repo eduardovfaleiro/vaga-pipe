@@ -1,56 +1,117 @@
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Cookie, Response
+from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
+from typing import Optional
 from database import get_db
 from crud.job import get_jobs
 import crud.recommendation as recommendation_crud
 import crud.user as user_crud
 from services.matcher import process_new_jobs_for_user
 from services.sync import sync_all_global_terms
+from services.auth import (
+    verify_password,
+    create_access_token,
+    create_refresh_token,
+    refresh_access_token,
+    get_current_user,
+)
 import schemas
+from schemas.auth import LoginRequest, TokenResponse
 from dotenv import load_dotenv
 
 app = FastAPI(title="Vaga Pipe API")
 load_dotenv()
 
+
 @app.get("/")
 async def root():
     return {"message": "Vaga Pipe API is running"}
+
 
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
 
+
+# Auth
+@app.post("/auth/login", response_model=TokenResponse)
+async def login(body: LoginRequest, response: Response, db: Session = Depends(get_db)):
+    user = user_crud.get_user_by_email(db, body.email)
+    if not user or not verify_password(body.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Credenciais inválidas")
+
+    access_token = create_access_token(user.id)
+    refresh_token = create_refresh_token(user.id)
+
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 30,
+    )
+    return {"access_token": access_token}
+
+
+@app.post("/auth/refresh", response_model=TokenResponse)
+async def refresh(refresh_token: Optional[str] = Cookie(default=None)):
+    access_token = refresh_access_token(refresh_token)
+    return {"access_token": access_token}
+
+
+@app.post("/auth/logout")
+async def logout(response: Response):
+    response.delete_cookie("refresh_token")
+    return {"message": "Logout realizado"}
+
+
+# Users
 @app.post("/users", response_model=schemas.User)
 async def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    if user_crud.get_user_by_email(db, user.email):
+        raise HTTPException(status_code=400, detail="E-mail já cadastrado")
     created_user = user_crud.create_user(db, user)
     jobs = get_jobs(db)
-
     await process_new_jobs_for_user(db, created_user, jobs)
     return created_user
 
-@app.get("/users/{user_id}", response_model=schemas.User)
-async def read_user(user_id: int, db: Session = Depends(get_db)):
-    db_user = user_crud.get_user(db, user_id)
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    return db_user
 
+@app.get("/users/{user_id}", response_model=schemas.User)
+async def read_user(
+    user_id: int,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    return current_user
+
+
+@app.get("/users/{user_id}/recommendations")
+async def get_recommendations(
+    user_id: int,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    return recommendation_crud.get_user_recommendations(db, user_id)
+
+
+# Jobs
+@app.get("/jobs")
+async def list_jobs(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    return get_jobs(db)
+
+
+# Sync
 @app.post("/sync-global")
 async def trigger_global_sync(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    result = sync_all_global_terms(db, background_tasks)
-    return result
+    return sync_all_global_terms(db, background_tasks)
+
 
 @app.post("/sync-global/force")
 async def force_global_sync(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     from crud.scrape_history import clear_scrape_history
     clear_scrape_history(db)
-    result = sync_all_global_terms(db, background_tasks)
-    return result
-
-@app.get("/jobs")
-async def list_jobs(db: Session = Depends(get_db)):
-    return get_jobs(db)
-
-@app.get("/users/{user_id}/recommendations")
-async def get_recommendations(user_id: int, db: Session = Depends(get_db)):
-    return recommendation_crud.get_user_recommendations(db, user_id)
+    return sync_all_global_terms(db, background_tasks)
