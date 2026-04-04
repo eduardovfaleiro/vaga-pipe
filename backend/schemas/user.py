@@ -4,13 +4,14 @@ from constants import DEFAULT_MATCH_THRESHOLD
 
 class UserBase(BaseModel):
     name: str
+    email: str
     title: str
     skills: List[str]
     match_threshold: float = DEFAULT_MATCH_THRESHOLD
     phone: Optional[str] = None
 
 class UserCreate(UserBase):
-    pass
+    password: str
 
 class User(UserBase):
     id: int
