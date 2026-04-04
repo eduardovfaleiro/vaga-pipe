@@ -1,7 +1,7 @@
 # Backend
 backend/venv/
 backend/.env
-backend/__pycache__/
+__pycache__/
 backend/*.db
 backend/test_flow.py
 
