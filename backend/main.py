@@ -20,6 +20,7 @@ from services.auth import (
 )
 import schemas
 from schemas.auth import LoginRequest, TokenResponse
+from schemas.recommendation import RecommendationStatusUpdate
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -107,6 +108,22 @@ async def get_recommendations(
 
 
 # Jobs
+@app.patch("/users/{user_id}/recommendations/{recommendation_id}")
+async def update_recommendation(
+    user_id: int,
+    recommendation_id: int,
+    body: RecommendationStatusUpdate,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    rec = recommendation_crud.update_recommendation_status(db, recommendation_id, user_id, body.status)
+    if not rec:
+        raise HTTPException(status_code=404, detail="Recomendação não encontrada")
+    return rec
+
+
 @app.get("/jobs")
 async def list_jobs(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     return get_jobs(db)
