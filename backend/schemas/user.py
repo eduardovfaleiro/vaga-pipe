@@ -21,6 +21,19 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
 
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v):
+        if len(v) < 8:
+            raise ValueError("senha deve ter no mínimo 8 caracteres")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("senha deve ter no mínimo 1 letra maiúscula")
+        if not re.search(r"[0-9]", v):
+            raise ValueError("senha deve ter no mínimo 1 número")
+        if not re.search(r"[^A-Za-z0-9]", v):
+            raise ValueError("senha deve ter no mínimo 1 caractere especial")
+        return v
+
 class User(UserBase):
     id: int
 
