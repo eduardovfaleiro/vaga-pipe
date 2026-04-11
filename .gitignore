@@ -24,3 +24,4 @@ scripts/.venv/
 
 /aws
 *.zip
+.venv
