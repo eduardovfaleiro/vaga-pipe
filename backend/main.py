@@ -5,7 +5,7 @@ from slowapi.errors import RateLimitExceeded
 from dotenv import load_dotenv
 import asyncio
 from services.outbox_worker import run_outbox_worker
-from api import auth, users, jobs, sync
+from routers import auth, users, jobs, sync
 
 load_dotenv()
 
