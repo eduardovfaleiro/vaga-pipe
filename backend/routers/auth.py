@@ -3,19 +3,37 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from database import get_db
 from services.auth import (
+    send_password_reset_email,
+    create_reset_token,
+    reset_user_password,
     verify_password,
     create_access_token,
     create_refresh_token,
     refresh_access_token,
 )
 import crud.user as user_crud
-from schemas.auth import LoginRequest, TokenResponse
+from schemas.auth import LoginRequest, TokenResponse, ForgotPasswordRequest, ResetPasswordRequest
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+@router.post("/forgot_password")
+async def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    user = user_crud.get_user_by_email(db, body.email)
+    if user:
+        token = create_reset_token(user.id)
+        send_password_reset_email(user.email, token)
+    return {"message": "Se esse email existir no sistema, um link para recuperação de senha será enviado para ele"}
+
+
+@router.post("/reset_password")
+async def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
+    reset_user_password(db, body.token, body.new_password)
+    return {"message": "Senha redefinida com sucesso"}
 
 
 @router.post("/login", response_model=TokenResponse)
