@@ -19,8 +19,9 @@ async def run_scraping_task(search_term: str):
         for scraper in scrapers:
             jobs = await scraper.scrape(search_term)
             for job_data in jobs:
-                db_job = create_job(db, job_data)
-                all_jobs.append(db_job)
+                db_job, created = create_job(db, job_data)
+                if created:
+                    all_jobs.append(db_job)
 
         log.info("Scraping finalizado", extra={"search_term": search_term, "jobs_count": len(all_jobs)})
         
