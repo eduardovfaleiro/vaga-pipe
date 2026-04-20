@@ -1,0 +1,123 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { fetchWithAuth } from '@/lib/api';
+import { RecommendationCard } from '@/components/RecommendationCard';
+import Link from 'next/link';
+
+type Status = 'pending' | 'applied' | 'rejected';
+
+interface Recommendation {
+  id: string;
+  job: {
+    id: string;
+    title: string;
+    company: string;
+    location: string;
+    posted_at: string;
+    url: string;
+  };
+  status: Status;
+}
+
+const TABS: { label: string; value: Status }[] = [
+  { label: 'Pendentes', value: 'pending' },
+  { label: 'Aplicadas', value: 'applied' },
+  { label: 'Rejeitadas', value: 'rejected' },
+];
+
+export default function DashboardPage() {
+  const { userId, logout } = useAuth();
+  const [recs, setRecs] = useState<Recommendation[]>([]);
+  const [tab, setTab] = useState<Status>('pending');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!userId) return;
+    setLoading(true);
+    fetchWithAuth(`/users/${userId}/recommendations`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Erro ao carregar recomendações');
+        return res.json();
+      })
+      .then(setRecs)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [userId]);
+
+  async function updateStatus(recId: string, status: 'applied' | 'rejected') {
+    if (!userId) return;
+    const res = await fetchWithAuth(`/users/${userId}/recommendations/${recId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+    if (res.ok) {
+      setRecs((prev) => prev.map((r) => (r.id === recId ? { ...r, status } : r)));
+    }
+  }
+
+  const filtered = recs.filter((r) => r.status === tab);
+
+  return (
+    <div className="min-h-screen bg-zinc-50">
+      <nav className="bg-white border-b border-zinc-200 px-4 py-3 flex items-center justify-between">
+        <span className="font-semibold text-zinc-900">Vagas</span>
+        <div className="flex items-center gap-4 text-sm">
+          <Link href="/jobs" className="text-zinc-600 hover:text-zinc-900">
+            Todas as vagas
+          </Link>
+          <Link href="/settings" className="text-zinc-600 hover:text-zinc-900">
+            Configurações
+          </Link>
+          <button onClick={logout} className="text-zinc-600 hover:text-zinc-900">
+            Sair
+          </button>
+        </div>
+      </nav>
+
+      <main className="max-w-2xl mx-auto px-4 py-8">
+        <h1 className="text-xl font-semibold text-zinc-900 mb-6">Recomendações</h1>
+
+        <div className="flex gap-1 border-b border-zinc-200 mb-6">
+          {TABS.map(({ label, value }) => (
+            <button
+              key={value}
+              onClick={() => setTab(value)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                tab === value
+                  ? 'border-zinc-900 text-zinc-900'
+                  : 'border-transparent text-zinc-500 hover:text-zinc-700'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {loading && <p className="text-sm text-zinc-500">Carregando...</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        {!loading && !error && filtered.length === 0 && (
+          <p className="text-sm text-zinc-500">Nenhuma vaga nesta categoria.</p>
+        )}
+        <div className="flex flex-col gap-3">
+          {filtered.map((rec) => (
+            <RecommendationCard
+              key={rec.id}
+              id={rec.id}
+              title={rec.job.title}
+              company={rec.job.company}
+              location={rec.job.location}
+              date={rec.job.posted_at}
+              url={rec.job.url}
+              status={rec.status}
+              onApply={(id) => updateStatus(id, 'applied')}
+              onReject={(id) => updateStatus(id, 'rejected')}
+            />
+          ))}
+        </div>
+      </main>
+    </div>
+  );
+}

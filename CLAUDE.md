@@ -121,10 +121,6 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 1. Create `backend/scrapers/<name>.py` extending `BaseScraper` (implement `scrape(term: str) -> list[JobCreate]`)
 2. Instantiate it in `backend/worker.py` alongside `AdzunaScraper`
 
-## Workflow
-
-- Após concluir qualquer alteração solicitada, crie o commit automaticamente sem precisar ser pedido.
-
 ## AI Implementation Guidelines
 
 - Follow the layered architecture: `routers/ → services/ → crud/ → database.py`
