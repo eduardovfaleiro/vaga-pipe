@@ -42,10 +42,10 @@ def delete_user(db: Session, user_id: int) -> bool:
     return True
 
 
-def update_user(db: Session, user_id: int, user_update: schemas.UserCreate):
+def update_user(db: Session, user_id: int, user_update: schemas.UserUpdate):
     db_user = get_user(db, user_id)
     if db_user:
-        for key, value in user_update.dict().items():
+        for key, value in user_update.model_dump(exclude_unset=True).items():
             setattr(db_user, key, value)
         db.commit()
         db.refresh(db_user)

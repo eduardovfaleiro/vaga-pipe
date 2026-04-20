@@ -34,6 +34,13 @@ class UserCreate(UserBase):
             raise ValueError("senha deve ter no mínimo 1 caractere especial")
         return v
 
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    title: Optional[str] = None
+    match_threshold: Optional[float] = None
+    skills: Optional[List[str]] = None
+
 class User(UserBase):
     id: int
 

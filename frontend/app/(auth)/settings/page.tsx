@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { fetchWithAuth, apiFetch } from '@/lib/api';
+import { fetchWithAuth, apiFetch, extractError } from '@/lib/api';
 import { clearToken } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { SkillsInput } from '@/components/SkillsInput';
 
 interface UserData {
   id: string;
@@ -17,12 +18,24 @@ interface UserData {
   match_threshold: number;
 }
 
+interface EditForm {
+  name: string;
+  title: string;
+  phone: string;
+  match_threshold: number;
+  skills: string[];
+}
+
 export default function SettingsPage() {
   const { userId } = useAuth();
   const router = useRouter();
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [form, setForm] = useState<EditForm | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -37,6 +50,56 @@ export default function SettingsPage() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [userId]);
+
+  function startEdit() {
+    if (!user) return;
+    setForm({
+      name: user.name,
+      title: user.title,
+      phone: user.phone ?? '',
+      match_threshold: user.match_threshold,
+      skills: [...user.skills],
+    });
+    setSaveError('');
+    setEditing(true);
+  }
+
+  function cancelEdit() {
+    setEditing(false);
+    setForm(null);
+    setSaveError('');
+  }
+
+  async function handleSave() {
+    if (!userId || !form) return;
+    setSaving(true);
+    setSaveError('');
+    try {
+      const body: Record<string, unknown> = {
+        name: form.name,
+        title: form.title,
+        phone: form.phone || null,
+        match_threshold: form.match_threshold,
+        skills: form.skills,
+      };
+      const res = await fetchWithAuth(`/users/${userId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(extractError(data.detail));
+      }
+      const updated: UserData = await res.json();
+      setUser(updated);
+      setEditing(false);
+      setForm(null);
+    } catch (e: unknown) {
+      setSaveError(e instanceof Error ? e.message : 'Erro ao salvar');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function handleLogout() {
     await apiFetch('/auth/logout', { method: 'POST' });
@@ -76,13 +139,13 @@ export default function SettingsPage() {
         {loading && <p className="text-sm text-zinc-500">Carregando...</p>}
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        {user && (
+        {user && !editing && (
           <div className="flex flex-col gap-4">
             <div className="border border-zinc-200 rounded-md p-4 flex flex-col gap-3">
               <Row label="Nome" value={user.name} />
               <Row label="E-mail" value={user.email} />
               <Row label="Cargo" value={user.title} />
-              {user.phone && <Row label="Telefone" value={user.phone} />}
+              <Row label="Telefone" value={user.phone ?? '—'} />
               <Row label="Match mínimo" value={`${user.match_threshold}%`} />
               <div className="flex flex-col gap-1">
                 <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">
@@ -103,12 +166,17 @@ export default function SettingsPage() {
 
             <div className="flex flex-col gap-2">
               <button
+                onClick={startEdit}
+                className="w-full py-2 text-sm font-medium bg-zinc-900 text-white rounded-md hover:bg-zinc-700 transition-colors"
+              >
+                Editar perfil
+              </button>
+              <button
                 onClick={handleLogout}
                 className="w-full py-2 text-sm font-medium bg-white text-zinc-900 border border-zinc-900 rounded-md hover:bg-zinc-100 transition-colors"
               >
                 Sair
               </button>
-
               {!confirmDelete ? (
                 <button
                   onClick={() => setConfirmDelete(true)}
@@ -141,6 +209,80 @@ export default function SettingsPage() {
             </div>
           </div>
         )}
+
+        {editing && form && (
+          <div className="flex flex-col gap-4">
+            <div className="border border-zinc-200 rounded-md p-4 flex flex-col gap-4">
+              <Field label="Nome">
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full text-sm border border-zinc-300 rounded-md px-3 py-2 outline-none focus:border-zinc-900 transition-colors"
+                />
+              </Field>
+
+              <Field label="Cargo">
+                <input
+                  type="text"
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  className="w-full text-sm border border-zinc-300 rounded-md px-3 py-2 outline-none focus:border-zinc-900 transition-colors"
+                />
+              </Field>
+
+              <Field label="Telefone">
+                <input
+                  type="text"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  placeholder="+55 11 99999-9999"
+                  className="w-full text-sm border border-zinc-300 rounded-md px-3 py-2 outline-none focus:border-zinc-900 transition-colors"
+                />
+              </Field>
+
+              <Field label={`Match mínimo: ${form.match_threshold}%`}>
+                <input
+                  type="range"
+                  min={10}
+                  max={100}
+                  step={5}
+                  value={form.match_threshold}
+                  onChange={(e) =>
+                    setForm({ ...form, match_threshold: Number(e.target.value) })
+                  }
+                  className="w-full accent-zinc-900"
+                />
+              </Field>
+
+              <Field label="Skills">
+                <SkillsInput
+                  skills={form.skills}
+                  onChange={(skills) => setForm({ ...form, skills })}
+                />
+              </Field>
+
+              {saveError && <p className="text-sm text-red-600">{saveError}</p>}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex-1 py-2 text-sm font-medium bg-zinc-900 text-white rounded-md hover:bg-zinc-700 disabled:opacity-50 transition-colors"
+              >
+                {saving ? 'Salvando...' : 'Salvar'}
+              </button>
+              <button
+                onClick={cancelEdit}
+                disabled={saving}
+                className="flex-1 py-2 text-sm font-medium bg-white text-zinc-900 border border-zinc-300 rounded-md hover:bg-zinc-100 disabled:opacity-50 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
@@ -151,6 +293,15 @@ function Row({ label, value }: { label: string; value: string }) {
     <div className="flex flex-col gap-0.5">
       <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">{label}</span>
       <span className="text-sm text-zinc-900">{value}</span>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">{label}</span>
+      {children}
     </div>
   );
 }

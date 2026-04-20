@@ -60,6 +60,21 @@ async def update_recommendation(
     return rec
 
 
+@router.patch("/{user_id}", response_model=schemas.User)
+async def update_user(
+    user_id: int,
+    body: schemas.UserUpdate,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    updated = user_crud.update_user(db, user_id, body)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    return updated
+
+
 @router.delete("/{user_id}", status_code=204)
 async def delete_user(
     user_id: int,
