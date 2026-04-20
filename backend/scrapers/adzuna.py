@@ -27,7 +27,7 @@ class AdzunaScraper(BaseScraper):
             "app_id": self.app_id,
             "app_key": self.app_key,
             "what": search_term,
-            "results_per_page": 10,
+            "results_per_page": 50,
             "content-type": "application/json"
         }
         
