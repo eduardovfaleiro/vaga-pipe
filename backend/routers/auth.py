@@ -8,12 +8,13 @@ from services.auth import (
     reset_user_password,
     verify_password,
     verify_google_token,
+    verify_github_token,
     create_access_token,
     create_refresh_token,
     refresh_access_token,
 )
 import crud.user as user_crud
-from schemas.auth import LoginRequest, TokenResponse, ForgotPasswordRequest, ResetPasswordRequest, GoogleAuthRequest
+from schemas.auth import LoginRequest, TokenResponse, ForgotPasswordRequest, ResetPasswordRequest, GoogleAuthRequest, GithubAuthRequest
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -67,6 +68,32 @@ async def refresh(refresh_token: Optional[str] = Cookie(default=None)):
 async def logout(response: Response):
     response.delete_cookie("refresh_token")
     return {"message": "Logout realizado"}
+
+
+@router.post("/github", response_model=TokenResponse)
+async def github_auth(body: GithubAuthRequest, response: Response, db: Session = Depends(get_db)):
+    info = verify_github_token(body.code)
+
+    user = user_crud.get_user_by_github_id(db, info["github_id"])
+    if not user:
+        user = user_crud.get_user_by_email(db, info["email"])
+        if user:
+            user.github_id = info["github_id"]
+            db.commit()
+        else:
+            user = user_crud.create_github_user(db, info["github_id"], info["email"], info["name"])
+
+    access_token = create_access_token(user.id)
+    refresh_token = create_refresh_token(user.id)
+
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 30,
+    )
+    return {"access_token": access_token}
 
 
 @router.post("/google", response_model=TokenResponse)

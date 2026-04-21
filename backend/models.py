@@ -11,6 +11,7 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String, nullable=True)
     google_id = Column(String, nullable=True, unique=True, index=True)
+    github_id = Column(String, nullable=True, unique=True, index=True)
     title = Column(String)
     skills = Column(JSON, default=list)
     match_threshold = Column(Float, default=70.0)

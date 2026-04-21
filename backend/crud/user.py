@@ -16,6 +16,25 @@ def get_user_by_google_id(db: Session, google_id: str):
     return db.query(models.User).filter(models.User.google_id == google_id).first()
 
 
+def get_user_by_github_id(db: Session, github_id: str):
+    return db.query(models.User).filter(models.User.github_id == github_id).first()
+
+
+def create_github_user(db: Session, github_id: str, email: str, name: str):
+    db_user = models.User(
+        name=name,
+        email=email,
+        github_id=github_id,
+        hashed_password=None,
+        title="",
+        skills=[],
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
 def create_google_user(db: Session, google_id: str, email: str, name: str):
     db_user = models.User(
         name=name,

@@ -109,6 +109,48 @@ def send_password_reset_email(email: str, token: str) -> None:
         smtp.sendmail(SMTP_FROM, [email], msg.as_string())
 
 
+GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
+GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
+
+
+def verify_github_token(code: str) -> dict:
+    resp = httpx.post(
+        "https://github.com/login/oauth/access_token",
+        json={"client_id": GITHUB_CLIENT_ID, "client_secret": GITHUB_CLIENT_SECRET, "code": code},
+        headers={"Accept": "application/json"},
+        timeout=10,
+    )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=503, detail="Erro ao obter token do GitHub")
+
+    access_token = resp.json().get("access_token")
+    if not access_token:
+        raise HTTPException(status_code=401, detail="Código GitHub inválido ou expirado")
+
+    headers = {"Authorization": f"Bearer {access_token}", "Accept": "application/vnd.github+json"}
+
+    user_resp = httpx.get("https://api.github.com/user", headers=headers, timeout=10)
+    if user_resp.status_code != 200:
+        raise HTTPException(status_code=401, detail="Token GitHub inválido")
+    user_info = user_resp.json()
+
+    email = user_info.get("email")
+    if not email:
+        emails_resp = httpx.get("https://api.github.com/user/emails", headers=headers, timeout=10)
+        if emails_resp.status_code == 200:
+            primary = next(
+                (e for e in emails_resp.json() if e.get("primary") and e.get("verified")), None
+            )
+            if primary:
+                email = primary["email"]
+
+    return {
+        "github_id": str(user_info["id"]),
+        "email": email or "",
+        "name": user_info.get("name") or user_info.get("login", ""),
+    }
+
+
 def verify_google_token(access_token: str) -> dict:
     resp = httpx.get(
         "https://www.googleapis.com/oauth2/v3/userinfo",

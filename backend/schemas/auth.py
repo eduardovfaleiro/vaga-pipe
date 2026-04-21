@@ -23,3 +23,7 @@ class ResetPasswordRequest(BaseModel):
 
 class GoogleAuthRequest(BaseModel):
     credential: str
+
+
+class GithubAuthRequest(BaseModel):
+    code: str

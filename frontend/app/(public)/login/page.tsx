@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { apiFetch, extractError } from '@/lib/api';
 import { setToken } from '@/lib/auth';
 import GoogleLoginButton from '@/components/GoogleLoginButton';
+import GithubLoginButton from '@/components/GithubLoginButton';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -78,6 +79,9 @@ export default function LoginPage() {
           <div className="flex-1 border-t border-zinc-200" />
         </div>
         <GoogleLoginButton />
+        <div className="mt-2">
+          <GithubLoginButton />
+        </div>
         <div className="mt-4 flex flex-col gap-1 text-sm text-zinc-600">
           <Link href="/register" className="hover:text-zinc-900 underline">
             Criar conta
