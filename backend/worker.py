@@ -1,4 +1,5 @@
 from fastapi import BackgroundTasks
+from crud.scrape_history import upsert_scrape_history
 from scrapers.adzuna import AdzunaScraper
 from database import SessionLocal
 from crud.job import create_job
@@ -24,7 +25,8 @@ async def run_scraping_task(search_term: str):
                     all_jobs.append(db_job)
 
         log.info("Scraping finalizado", extra={"search_term": search_term, "jobs_count": len(all_jobs)})
-        
+        upsert_scrape_history(db, search_term)
+
         # Realiza o cálculo automático de MATCH (Cruzamento)
         await process_new_jobs_for_users(db, all_jobs)
     finally:
