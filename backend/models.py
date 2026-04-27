@@ -1,3 +1,4 @@
+from constants import DEFAULT_MATCH_THRESHOLD
 from sqlalchemy import Column, Integer, String, Text, Float, ForeignKey, DateTime, JSON
 from sqlalchemy.orm import relationship
 from database import Base
@@ -14,7 +15,7 @@ class User(Base):
     github_id = Column(String, nullable=True, unique=True, index=True)
     title = Column(String)
     skills = Column(JSON, default=list)
-    match_threshold = Column(Float, default=70.0)
+    match_threshold = Column(Float, default=DEFAULT_MATCH_THRESHOLD)
     phone = Column(String, nullable=True)
 
 class Job(Base):
