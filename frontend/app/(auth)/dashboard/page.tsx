@@ -101,20 +101,22 @@ export default function DashboardPage() {
           <p className="text-sm text-zinc-500">Nenhuma vaga nesta categoria.</p>
         )}
         <div className="flex flex-col gap-3">
-          {filtered.map((rec) => (
-            <RecommendationCard
-              key={rec.id}
-              id={rec.id}
-              title={rec.job.title}
-              company={rec.job.company}
-              location={rec.job.location}
-              date={rec.job.posted_at}
-              url={rec.job.url}
-              status={rec.status}
-              onApply={(id) => updateStatus(id, 'applied')}
-              onReject={(id) => updateStatus(id, 'rejected')}
-            />
-          ))}
+          {filtered.map((rec) => {
+
+            return (
+              <RecommendationCard
+                key={rec.id}
+                id={rec.id}
+                title={rec.job.title}
+                company={rec.job.company}
+                location={rec.job.location}
+                date={rec.job.posted_at}
+                url={rec.job.url}
+                status={rec.status}
+                onApply={(id) => updateStatus(id, 'applied')}
+                onReject={(id) => updateStatus(id, 'rejected')} />
+            );
+          })}
         </div>
       </main>
     </div>

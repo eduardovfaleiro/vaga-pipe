@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 import models
 
 def create_recommendation(db: Session, user_id: int, job_id: int, score: float):
@@ -21,7 +21,9 @@ def create_recommendation(db: Session, user_id: int, job_id: int, score: float):
     return db_rec
 
 def get_user_recommendations(db: Session, user_id: int):
-    return db.query(models.Recommendation).filter(
+    return db.query(models.Recommendation).options(
+        joinedload(models.Recommendation.job)
+    ).filter(
         models.Recommendation.user_id == user_id
     ).order_by(models.Recommendation.match_score.desc()).all()
 
